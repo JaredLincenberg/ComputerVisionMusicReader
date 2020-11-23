@@ -4,37 +4,75 @@ import os
 import glob
 from pdf2image import convert_from_path
 
+def get_xy(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        print(x,y)
+        param.append((x,y))
+        print(param)
 def main():
-     
-    images = readInFiles("toccatina-let.pdf")
-    for imageName in images:
-        cv2.cvtColor(images[imageName], cv2.COLOR_BGR2GRAY)
-
+    images = readInFiles("lanative-let")
+    manualSelectTemplateMatch(images)
+    
     # Apply Methods
+def manualSelectTemplateMatch(images):
+    for imageName in images:
+        current_image = images[imageName]
+        cv2.cvtColor(current_image, cv2.COLOR_BGR2GRAY)
+        
+        ret, current_image = cv2.threshold(current_image,150,255,cv2.THRESH_BINARY)
+        cv2.imshow(imageName, current_image)
+        x=[]
+        # imageCopy = current_image.copy()
+        cv2.setMouseCallback(imageName, get_xy, param =x)
+        while(len(x)<2):
+            if cv2.waitKey(20) & 0xFF == 27:
+                break
+            if(len(x)==1):
+                pass
+                # cv2.circle(current_image, x[0], 4, (0,0,255), thickness=-1, lineType=8, shift=0)
+                # cv2.imshow(imageName+str(1), current_image)
+        print("left Loop")
+        sub = current_image[x[0][1]:x[1][1], x[0][0]:x[1][0]]
+        cv2.imshow("img", sub)
+        C = cv2.matchTemplate(current_image, sub, cv2.TM_CCOEFF_NORMED)
+        loc = np.where( C >= 0.95)
+
+        # Loop through locations place a rectangle and count the number of 'a's
+        letterACount=0
+        subWidth = sub.shape[1]
+        subHeight= sub.shape[0]
+        print(sub.shape)
+        for pt in zip(*loc[::-1]):
+            letterACount +=1
+            cv2.rectangle(current_image,pt,(pt[0]+subWidth, pt[1]+subHeight),(0,0,255), thickness=8, lineType=8, shift=0)
+        print(letterACount)
+        cv2.imshow(imageName, current_image)
+        cv2.waitKey(0)
+        break
+    cv2.waitKey(0)
 def readInFiles(pdfFileName):
     # https://www.geeksforgeeks.org/python-reading-contents-of-pdf-using-ocr-optical-character-recognition/
-    pages = convert_from_path(pdfFileName, 500)
+    pages = convert_from_path(pdfFileName+".pdf", 500)
     images = {}
     for page, i  in zip(pages, range(len(pages))):
-        filename = "toccatina-let_"+str(i)+".jpg"
+        filename = pdfFileName+'_'+str(i)+".jpg"
       
         # Save the image of the page in system 
         page.save(filename, 'JPEG') 
 
         # Read in image
-        pageImg = cv2.imread("toccatina-let_"+str(i)+".jpg")
+        pageImg = cv2.imread(pdfFileName+'_'+str(i)+".jpg")
 
         # Save Filename and image to Dictionary
-        images["toccatina-let_"+str(i)+".jpg"] = pageImg
+        images[pdfFileName+'_'+str(i)+".jpg"] = pageImg
 
         # Make large images viewable
-        create_named_window("toccatina-let_"+str(i)+".jpg", pageImg)
-        cv2.imshow("toccatina-let_"+str(i)+".jpg", pageImg)
-    cv2.waitKey(0)
+        create_named_window(pdfFileName+'_'+str(i)+".jpg", pageImg)
+        # cv2.imshow(pdfFileName+'_'+str(i)+".jpg", pageImg)
+    # cv2.waitKey(0)
     return images
 
-def convertGrayScale():
-    return cv2.cvtColor(imageCCC,cv2.COLOR_BGR2GRAY)
+
 
 
 # Taken from Slides

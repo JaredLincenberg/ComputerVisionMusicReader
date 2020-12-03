@@ -3,7 +3,9 @@ import numpy as np
 import os 
 import glob
 from pdf2image import convert_from_path
-
+import math
+import matplotlib.pyplot as plt
+MAX_SIZE = 2000
 def get_xy(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         print(x,y)
@@ -11,8 +13,67 @@ def get_xy(event, x, y, flags, param):
         print(param)
 def main():
     images = readInFiles("lanative-let")
-    manualSelectTemplateMatch(images)
+    # manualSelectTemplateMatch(images)
+    for imageName in images:
+        a = getImageLines(images[imageName])
+        getImageSum(images[imageName])
+        # create_named_window("edges", a)
+        # cv2.imshow("edges", a)
+        # cv2.waitKey(0)
     
+def getImageSum(image):
+    img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    black_img = cv2.bitwise_not(img)
+    sumOfRows = np.sum(black_img, axis=1)
+    x = np.arange(len(sumOfRows))
+    plt.plot(sumOfRows)
+    print(len(np.where(sumOfRows<1)[0])) 
+    b = []
+    x0 = -1
+    for x in np.where(sumOfRows<2.5e4)[0]:
+        if x0+1 != x:
+            b.append(x0)
+            x0 = x
+            b.append(x)
+            
+        else:
+            x0+=1
+    print(b)
+    plt.vlines(b,0,1e6,colors='r')
+    plt.show()
+def getImageLines(image):
+    if(image.shape[0]>=MAX_SIZE or image.shape[1]>=MAX_SIZE):
+        w = MAX_SIZE/image.shape[0]
+        h = MAX_SIZE/image.shape[1]
+        image = cv2.resize(image, dsize=None, fx = h, fy = h)
+    image_width = image.shape[1]
+    image_height = image.shape[0]
+
+    img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    edge_img = cv2.Canny(image=img, 
+                            apertureSize=3,  
+                            threshold1=0.05, 
+                            threshold2=3 * 0.05, 
+                            L2gradient=True) 
+    MIN_HOUGH_VOTES_FRACTION = 0.15
+    MIN_LINE_LENGTH_FRACTION = 0.05
+    hough_lines = cv2.HoughLines( image = edge_img, 
+                                    rho = 1, 
+                                    theta = math.pi/180, 
+                                    threshold = int(img.shape[1] * MIN_HOUGH_VOTES_FRACTION), 
+                                    )
+    for i in range(min(100, len(hough_lines))):    
+        rho = hough_lines[i][0][0]  # distance from (0,0)
+        theta = hough_lines[i][0][1]  # angle in radians
+        a = math.cos(theta)  # distance from (0,0)
+        b = math.sin(theta) # angle in radians
+        x0 = a * rho
+        y0 = b * rho
+        p1 = (int(x0 + MAX_SIZE * (-b)), int(y0 + MAX_SIZE * (a)))   
+        p2 = (int(x0 - MAX_SIZE * (-b)), int(y0 - MAX_SIZE * (a)))   
+        print(p1, p2)  
+        cv2.line(img=image, pt1=p1, pt2=p2, color=(0, 0, 255), thickness=2, lineType=cv2.LINE_AA)
+    return image
     # Apply Methods
 def manualSelectTemplateMatch(images):
     for imageName in images:

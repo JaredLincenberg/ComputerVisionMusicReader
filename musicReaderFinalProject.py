@@ -17,7 +17,7 @@ def main():
     # manualSelectTemplateMatch(images)
     for imageName in images:
         #Find Staffs
-        findStaffs(images[imageName])
+        findStaffs(images[imageName], imageName)
         
         # a = getImageLines(images[imageName])
         # getImageSum(images[imageName])
@@ -25,9 +25,39 @@ def main():
         # cv2.imshow("edges", a)
         # cv2.waitKey(0)
 
-def findStaffs(image):
-    a = glob.glob('Notes/*[C|c]left*')
-    print(a)
+def templateMatch(image, template):
+    C = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+    loc = np.where( C >= 0.95)
+    # Loop through locations place a rectangle and count the number of 'a's
+    letterACount=0
+    templateWidth = template.shape[1]
+    templateHeight = template.shape[0]
+    # for pt in zip(*loc[::-1]):
+    #     letterACount +=1
+    #     cv2.rectangle(image, pt,(pt[0]+subWidth, pt[1]+subHeight),(0,0,255), thickness=8, lineType=8, shift=0)
+    # print(letterACount)
+    # cv2.imshow(imageName, image)
+    return loc
+def findStaffs(image, imageName = "temp"):
+    clefts_path = glob.glob('Notes/*[C|c]left*')
+    for cleft_path in clefts_path:
+        template = cv2.imread(cleft_path, cv2.IMREAD_COLOR)
+        # template = cv2.cvtColor(template, cv2.COLOR_RGB2GRAY)
+        cleftCount=0
+        templateWidth = template.shape[1]
+        templateHeight = template.shape[0]
+        loc = templateMatch(image, template)
+        for pt in zip(*loc[::-1]):
+            cleftCount +=1
+            cv2.line(image, (0, pt[1]),(image.shape[1], pt[1]),(0,0,255), thickness=8, lineType=8, shift=0)
+            cv2.line(image, (0, pt[1]+templateHeight),(image.shape[1], pt[1]+templateHeight),(0,0,255), thickness=8, lineType=8, shift=0)
+        print(cleftCount)
+        cv2.imshow(imageName, image)
+        cv2.waitKey(0)
+
+
+   
+
 def getImageSum(image):
     img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     black_img = cv2.bitwise_not(img)
